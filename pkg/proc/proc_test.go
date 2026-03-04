@@ -4306,12 +4306,18 @@ func TestBreakpointMaterializedEvent(t *testing.T) {
 		assertNoError(grp.Continue(), t, "Continue")
 
 		// The breakpoint should be enabled now
-		if !bp2.Enabled() || len(events) == 0 {
+		if !bp2.Enabled() {
 			t.Fatal("Breakpoint did not materialize")
 		}
-		e := events[0]
-		if e.Kind != proc.EventBreakpointMaterialized {
-			t.Fatalf("Wrong event kind: want breakpoint materialized (%v), got %v", proc.EventBreakpointMaterialized, e.Kind)
+		var found bool
+		for _, e := range events {
+			if e.Kind == proc.EventBreakpointMaterialized {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("No breakpoint materialized event found in %d events", len(events))
 		}
 	})
 }
@@ -5748,15 +5754,12 @@ func TestPanicLine(t *testing.T) {
 }
 
 func TestReadClosure(t *testing.T) {
-	if !goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) {
-		t.Skip("not implemented")
-	}
 	withTestProcess("closurecontents", t, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
 		avalues := []int64{0, 3, 9, 27}
 		for i := range 4 {
 			assertNoError(grp.Continue(), t, "Continue()")
 			accV := evalVariable(p, t, "acc")
-			t.Log(api.ConvertVar(accV).MultilineString("", ""))
+			t.Log(multiLineVar(accV))
 			if len(accV.Children) != 2 {
 				t.Fatal("wrong number of children")
 			}
@@ -6045,5 +6048,91 @@ func TestTrimpathDetection(t *testing.T) {
 	assertNoError(b2.LoadBinaryInfo(f2.Path, 0x10000, nil), t, "LoadBinaryInfo")
 	if !b2.Images[0].Trimpath {
 		t.Error("expected trimpath used to be true, was false")
+	}
+}
+
+func TestNonGoBinaryWithGoDlopen(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("only supported on linux")
+	}
+	if testBackend != "native" {
+		t.Skip("only supported with native backend")
+	}
+	if objcopyPath, _ := exec.LookPath("cc"); objcopyPath == "" {
+		t.Skip("no C compiler in path")
+	}
+	protest.MustHaveCgo(t)
+
+	fixturesDir := protest.FindFixturesDir()
+	tmpdir := t.TempDir()
+	goSoPath := filepath.Join(tmpdir, "golib.so")
+
+	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", goSoPath, ".")
+	cmd.Dir = filepath.Join(fixturesDir, "godlopen", "golib")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to build Go shared object: %v\n%s", err, out)
+	}
+
+	cBinPath := filepath.Join(tmpdir, "godlopen")
+	cSrcPath := filepath.Join(fixturesDir, "godlopen", "main.c")
+	cmd = exec.Command("cc", "-g0", "-o", cBinPath, cSrcPath, "-ldl")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to build C binary: %v\n%s", err, out)
+	}
+
+	grp, err := native.Launch([]string{cBinPath, goSoPath}, tmpdir, 0, []string{}, "", "", proc.OutputRedirect{}, proc.OutputRedirect{})
+	if err != nil {
+		t.Fatalf("Launch failed: %v", err)
+	}
+	defer grp.Detach(true)
+
+	p := grp.Selected
+
+	if len(p.BinInfo().Images) == 0 {
+		t.Fatal("no images loaded")
+	}
+	if p.BinInfo().Images[0].IsGo {
+		t.Error("expected Images[0].IsGo to be false")
+	}
+	if p.BinInfo().HasGoImage() {
+		t.Error("expected HasGoImage to be false before dlopen")
+	}
+
+	err = grp.Continue()
+	if err != nil {
+		t.Fatalf("Continue failed: %v", err)
+	}
+
+	if grp.Selected.StopReason != proc.StopSharedLibLoaded {
+		t.Fatalf("expected StopSharedLibLoaded stop reason, got %v", grp.Selected.StopReason)
+	}
+	if !p.BinInfo().HasGoImage() {
+		t.Fatal("expected HasGoImage to be true after shared library load")
+	}
+
+	expectedFuncs := map[string]bool{
+		"C.GoFunction": false,
+		"main.main":    false,
+	}
+	for _, fn := range p.BinInfo().Functions {
+		if _, ok := expectedFuncs[fn.Name]; ok {
+			expectedFuncs[fn.Name] = true
+		}
+	}
+	for name, found := range expectedFuncs {
+		if !found {
+			t.Errorf("could not find %s in loaded debug symbols", name)
+		}
+	}
+
+	// Continue again to let the process finish.
+	err = grp.Continue()
+	if err != nil {
+		var pe proc.ErrProcessExited
+		if !errors.As(err, &pe) {
+			t.Fatalf("second Continue failed: %v", err)
+		}
 	}
 }

@@ -109,6 +109,10 @@ func setVariable(p *proc.Target, symbol, value string) error {
 	return scope.SetVariable(symbol, value)
 }
 
+func multiLineVar(v *proc.Variable) string {
+	return api.ConvertVar(v).StringWithOptions("", "", api.PrettyNewlines)
+}
+
 func TestVariableEvaluation(t *testing.T) {
 	protest.AllowRecording(t)
 	testcases := []struct {
@@ -443,7 +447,7 @@ func TestMultilineVariableEvaluation(t *testing.T) {
 		for _, tc := range testcases {
 			variable, err := evalVariableWithCfg(p, tc.name, pnormalLoadConfig)
 			assertNoError(err, t, "EvalVariable() returned an error")
-			if ms := api.ConvertVar(variable).MultilineString("", ""); !matchStringOrPrefix(ms, tc.value) {
+			if ms := multiLineVar(variable); !matchStringOrPrefix(ms, tc.value) {
 				t.Fatalf("Expected %s got %q (variable %s)\n", tc.value, ms, variable.Name)
 			}
 		}
@@ -992,8 +996,8 @@ func TestEvalExpression(t *testing.T) {
 					return
 				}
 				if err != nil && err.Error() == "expression *ast.CompositeLit not implemented" {
-					if !goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) || runtime.GOARCH == "386" {
-						// composite literals not supported before 1.22
+					if runtime.GOARCH == "386" {
+						// composite literals are currently unsupported on 386
 						return
 					}
 				}
@@ -1057,7 +1061,7 @@ func TestMapEvaluation(t *testing.T) {
 		m1v, err := evalVariableWithCfg(p, "m1", pnormalLoadConfig)
 		assertNoError(err, t, "EvalVariable()")
 		m1 := api.ConvertVar(m1v)
-		t.Logf("m1 = %v", m1.MultilineString("", ""))
+		t.Logf("m1 = %v", multiLineVar(m1v))
 
 		if m1.Type != "map[string]main.astruct" {
 			t.Fatalf("Wrong type: %s", m1.Type)
@@ -1248,7 +1252,7 @@ func TestConstants(t *testing.T) {
 			assertNoError(err, t, fmt.Sprintf("EvalVariable(%s)", testcase.name))
 			assertVariable(t, variable, testcase)
 			cv := api.ConvertVar(variable)
-			str := cv.SinglelineStringFormatted("%#x")
+			str := cv.StringWithOptions("", "%#x", 0)
 			if str != testcase.alternate {
 				t.Errorf("for %s expected %q got %q when formatting in hexadecimal", testcase.name, testcase.alternate, str)
 			}
@@ -1459,10 +1463,8 @@ func TestCallFunction(t *testing.T) {
 			}
 		}
 
-		if goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) {
-			for _, tc := range testcases123 {
-				testCallFunction(t, grp, p, tc)
-			}
+		for _, tc := range testcases123 {
+			testCallFunction(t, grp, p, tc)
 		}
 
 		// LEAVE THIS AS THE LAST ITEM, IT BREAKS THE TARGET PROCESS!!!
@@ -1937,10 +1939,6 @@ func TestCapturedVariable(t *testing.T) {
 
 func TestSetupRangeFramesCrash(t *testing.T) {
 	// See issue #3806
-	if !goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) {
-		t.Skip("N/A")
-	}
-
 	for _, options := range []protest.BuildFlags{0, protest.EnableInlining | protest.EnableOptimization} {
 		withTestProcessArgs("setiterator", t, ".", []string{}, options, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
 			setFileBreakpoint(p, t, fixture.Source, 48)
@@ -1967,7 +1965,7 @@ func TestClassicMap(t *testing.T) {
 		t.Skip("N/A")
 	}
 	if goversion.VersionAfterOrEqual(runtime.Version(), 1, 27) {
-		panic("test expired, please remove")
+		t.Skip("noswissmap experiment removed in Go 1.27")
 	}
 	t.Setenv("GOEXPERIMENT", "noswissmap")
 
@@ -2023,9 +2021,6 @@ func TestClassicMap(t *testing.T) {
 
 func TestCallFunctionRegisterArg(t *testing.T) {
 	protest.MustSupportFunctionCalls(t, testBackend)
-	if !goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) {
-		t.Skip("not supported")
-	}
 	withTestProcessArgs("issue3310", t, ".", []string{}, protest.AllNonOptimized, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
 		setFileBreakpoint(p, t, fixture.Source, 12)
 		assertNoError(grp.Continue(), t, "Continue()")
@@ -2037,9 +2032,6 @@ func TestCapturedVarVisibleOnFirstLine(t *testing.T) {
 	// Checks that a variable captured by a closure is visible on the first
 	// line of the closure function.
 	// See issue #4000
-	if !goversion.VersionAfterOrEqual(runtime.Version(), 1, 23) {
-		t.Skip("not implemented")
-	}
 	skipOn(t, "broken", "linux", "386")
 	withTestProcess("issue4000", t, func(p *proc.Target, grp *proc.TargetGroup, fixture protest.Fixture) {
 		addrs, err := proc.FindFileLocation(p, fixture.Source, 7)

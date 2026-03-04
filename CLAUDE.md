@@ -121,6 +121,9 @@ make test
 - **Backend-specific tests**: Test each backend separately
 - **Test fixtures**: Source code in `_fixtures/` (compiled during tests,
   not pre-compiled binaries)
+- **Finding fixtures directory**: Use `protest.FindFixturesDir()` from
+  `github.com/go-delve/delve/pkg/proc/test` instead of writing custom
+  fixture directory lookup code
 
 ### Test Quality Standards
 
@@ -278,6 +281,10 @@ Fixes #1234
 
 4. **Memory safety** - Always handle errors when reading process memory.
    Process may die, memory may be unmapped, or addresses invalid.
+
+5. **Don't reparse DWARF sections** - `loadDebugInfoMaps` already
+   iterates all compile units. Add per-CU checks there instead of
+   making separate passes over `debug_info`.
 
 ## File Organization
 

@@ -141,6 +141,9 @@ func New(client service.Client, conf *config.Config) *Term {
 				t.downloadsMu.Unlock()
 				if !firstEventBinaryInfoDownload {
 					fmt.Fprintf(t.stdout, "\r")
+					if strings.ToLower(os.Getenv("TERM")) != "dumb" {
+						fmt.Fprintf(t.stdout, "\x1b[J") // clear to the end of the line
+					}
 				}
 				fmt.Fprintf(t.stdout, "Downloading debug info for %s: %s (press ^C to cancel)", event.BinaryInfoDownloadEventDetails.ImagePath, event.BinaryInfoDownloadEventDetails.Progress)
 				firstEventBinaryInfoDownload = false
@@ -645,7 +648,7 @@ func (t *Term) printDisplay(i int) {
 		fmt.Fprintf(t.stdout, "%d: %s = error %v\n", i, expr, err)
 		return
 	}
-	fmt.Fprintf(t.stdout, "%d: %s = %s\n", i, val.Name, val.SinglelineStringFormatted(fmtstr))
+	fmt.Fprintf(t.stdout, "%d: %s = %s\n", i, val.Name, val.StringWithOptions("", fmtstr, 0))
 }
 
 func (t *Term) printDisplays() {
