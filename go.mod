@@ -13,18 +13,18 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	go.starlark.net v0.0.0-20260210143700-b62fd896b91b
+	go.starlark.net v0.0.0-20260326113308-fadfc96def35
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/arch v0.25.0
 	golang.org/x/sys v0.42.0
-	golang.org/x/telemetry v0.0.0-20260312161427-1546bf4b83fe
+	golang.org/x/telemetry v0.0.0-20260316223853-b6b0c46d1ccd
 )
 
 require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mattn/go-runewidth v0.0.21 // indirect
+	github.com/mattn/go-runewidth v0.0.22 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
