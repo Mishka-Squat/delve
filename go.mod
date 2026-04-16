@@ -17,7 +17,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/arch v0.26.0
 	golang.org/x/sys v0.43.0
-	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa
+	golang.org/x/telemetry v0.0.0-20260414141209-fac6e1c83189
 )
 
 require (
