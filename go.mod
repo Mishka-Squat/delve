@@ -10,14 +10,14 @@ require (
 	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62
 	github.com/google/go-dap v0.12.0
 	github.com/mattn/go-colorable v0.1.14
-	github.com/mattn/go-isatty v0.0.21
+	github.com/mattn/go-isatty v0.0.22
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	go.starlark.net v0.0.0-20260326113308-fadfc96def35
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/arch v0.26.0
 	golang.org/x/sys v0.43.0
-	golang.org/x/telemetry v0.0.0-20260414141209-fac6e1c83189
+	golang.org/x/telemetry v0.0.0-20260428171046-76f71b9afea0
 )
 
 require (
